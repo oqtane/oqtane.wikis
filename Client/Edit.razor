@@ -67,7 +67,8 @@
                     </Row>
                 </Pager>
                 @((MarkupString)_view)
-            </TabPanel>
+                <NavLink class="btn btn-secondary mt-2" href="@PageState.ReturnUrl">@SharedLocalizer["Cancel"]</NavLink>
+                </TabPanel>
         }
     </TabStrip>
 }
