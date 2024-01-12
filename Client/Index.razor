@@ -1,0 +1,161 @@
+@using Oqtane.Wiki.Services
+@using Oqtane.Wiki.Models
+@using Oqtane.Wiki.Shared
+
+@namespace Oqtane.Wiki
+@inherits ModuleBase
+@inject IWikiService WikiService
+@inject NavigationManager NavigationManager
+@inject ISettingService SettingService
+@inject IStringLocalizer<Index> Localizer
+@inject IStringLocalizer<SharedResources> SharedLocalizer
+
+<div class="container">
+    <div class="row mb-1 justify-content-center">
+        <div class="col-sm-12 col-md-9 col-lg-6">
+            <div class="input-group">
+                <NavLink class="btn btn-primary" href="@NavigateUrl()">@Localizer["Home"]</NavLink>
+                <input class="form-control" @bind="@_search" placeholder="Search..." />
+                <button type="button" class="btn btn-primary" @onclick="Search">@SharedLocalizer["Search"]</button>
+                <button type="button" class="btn btn-secondary" @onclick="Reset">@SharedLocalizer["Reset"]</button>
+                <a href="@_rss" target="_new" class="btn btn-info">@Localizer["RSS"]</a>
+            </div>
+        </div>
+    </div>
+</div>
+<br />
+@if (!string.IsNullOrEmpty(_search) && _wikicontents != null)
+{
+    @if (_wikicontents.Any())
+    {
+        <Pager Items="@_wikicontents">
+            <Header>
+            <th><h3>@Localizer["Results"]</h3></th>
+            </Header>
+            <Row>
+                <td>
+                    <h3><a href="@FormatUrl(context)">@context.Title</a></h3>
+                    <p>@((MarkupString)Common.CreateSummary(context.Content, 200, _search))</p>
+                </td>
+            </Row>
+        </Pager>
+    }
+    else
+    {
+        <div class="text-center">@Localizer["Message.NoResults"]</div>
+    }
+}
+else
+{
+    <div class="text-center">
+        <ActionLink Action="Edit" Parameters="@("id=" + _id.ToString())" ReturnUrl="@PageState.Route.PathAndQuery" ResourceKey="Edit" />
+    </div>
+    @((MarkupString)_content)
+
+}
+<br />
+
+@code {
+    public override string UrlParametersTemplate => "/{id}/{slug}";
+
+    private List<WikiContent> _wikicontents;
+    private string _search;
+
+    private string _template;
+    private int _id = -1;
+    private string _content;
+
+    private string _rss = "";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        try
+        {
+            _wikicontents = null;
+
+            _template = SettingService.GetSetting(ModuleState.Settings, "Template", "<h2>[TITLE]</h2><p>[CONTENT]</p>");
+
+            WikiContent wikicontent = null;
+            if (!string.IsNullOrEmpty(PageState.UrlParameters) && UrlParameters.ContainsKey("id"))
+            {
+                _id = int.Parse(UrlParameters["id"]);
+                wikicontent = await WikiService.GetWikiContentAsync(ModuleState.ModuleId, _id);
+            }
+            else
+            {
+                _id = int.Parse(SettingService.GetSetting(ModuleState.Settings, "WikiPageId", "-1"));
+                if (_id != -1)
+                {
+                    wikicontent = await WikiService.GetWikiContentAsync(ModuleState.ModuleId, _id);
+                }
+            }
+
+            if (wikicontent != null)
+            {
+                _content = FormatTemplate(_template, wikicontent);
+                SetPageTitle(wikicontent.Title);
+                AddHeadContent($"<meta name=\"description\" content=\"{Common.CreateSummary(wikicontent.Content, 200, "")}\" />");
+            }
+            else
+            {
+                if (_id != -1)
+                {
+                    _content = $"<div class=\"text-center\">{Localizer["Message.NotFound"]}</div>";
+                }
+                else
+                {
+                    _content = $"<div class=\"text-center\">{Localizer["Message.Initialize"]}</div>";
+                }
+            }
+
+            _rss = $"/api/wiki/rss/{ModuleState.ModuleId}";
+        }
+        catch (Exception ex)
+        {
+            await logger.LogError(ex, "Error Loading WikiContent {Error}", ex.Message);
+            ModuleInstance.AddModuleMessage(Localizer["Error.Loading"], MessageType.Error);
+        }
+    }
+
+    private string FormatUrl(WikiContent wikicontent)
+    {
+        return NavigateUrl(PageState.Page.Path, AddUrlParameters(wikicontent.WikiPageId, Common.FormatSlug(wikicontent.Title)));
+    }
+
+    private string FormatTemplate(string template, WikiContent wikicontent)
+    {
+        template = template.Replace("[ID]", wikicontent.WikiPageId.ToString());
+        template = template.Replace("[TITLE]", wikicontent.Title);
+        template = template.Replace("[CONTENT]", Utilities.FormatContent(wikicontent.Content, PageState.Alias, "render"));
+        template = template.Replace("[CREATEDBY]", wikicontent.CreatedBy);
+        template = template.Replace("[CREATEDON]", wikicontent.CreatedOn.ToShortDateString());
+        template = template.Replace("[URL]", FormatUrl(wikicontent));
+        return template;
+    }
+
+    private async Task Search()
+    {
+        try
+        {
+            if (!string.IsNullOrEmpty(_search))
+            {
+                _wikicontents = await WikiService.GetWikiContentsAsync(ModuleState.ModuleId, _search);
+                SetPageTitle(Localizer["Results"]);
+                AddHeadContent($"<meta name=\"description\" content=\"{Localizer["Results"]}\" />");
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            await logger.LogError(ex, "Error Searching WikiContent {Error}", ex.Message);
+            ModuleInstance.AddModuleMessage(Localizer["Error.Searching"], MessageType.Error);
+        }
+    }
+
+    private void Reset()
+    {
+        _search = "";
+        _wikicontents = null;
+        StateHasChanged();
+    }
+}

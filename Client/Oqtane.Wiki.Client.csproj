@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Version>1.0.0</Version>
+    <Authors>Shaun Walker</Authors>
+    <Company>.NET Foundation</Company>
+    <Description>Wiki</Description>
+    <Product>Oqtane.Wiki</Product>
+    <Copyright>.NET Foundation</Copyright>
+    <AssemblyName>Oqtane.Wiki.Client.Oqtane</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+	  <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="8.0.0" />
+	  <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="8.0.0" PrivateAssets="all" />
+	  <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Authentication" Version="8.0.0" />
+	  <PackageReference Include="Microsoft.Extensions.Localization" Version="8.0.0" />
+	  <PackageReference Include="System.Net.Http.Json" Version="8.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Shared\Oqtane.Wiki.Shared.csproj" />
+  </ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Oqtane.Client" Version="5.0.1" />
+		<PackageReference Include="Oqtane.Shared" Version="5.0.1" />
+	</ItemGroup>
+
+  <PropertyGroup>
+    <!-- there may be other elements here -->
+    <BlazorWebAssemblyEnableLinking>false</BlazorWebAssemblyEnableLinking>
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+  </PropertyGroup>
+
+</Project>

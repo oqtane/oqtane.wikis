@@ -1,0 +1,260 @@
+@using Oqtane.Wiki.Services
+@using Oqtane.Wiki.Models
+
+@namespace Oqtane.Wiki
+@inherits ModuleBase
+@inject IWikiService WikiService
+@inject ISettingService SettingService
+@inject NavigationManager NavigationManager
+@inject IStringLocalizer<Edit> Localizer
+@inject IStringLocalizer<SharedResources> SharedLocalizer
+
+@if (initialized)
+{
+    <TabStrip>
+        <TabPanel Name="Edit" Heading="Edit" ResourceKey="Edit">
+            <form @ref="form" class="@(validated ? "was-validated" : "needs-validation")" novalidate>
+                <div class="container">
+                    <div class="row mb-1 align-items-center">
+                        <Label Class="col-sm-3" For="title" ResourceKey="Title" HelpText="Enter the title">Title: </Label>
+                        <div class="col-sm-9">
+                            <input id="title" type="text" class="form-control" @bind="@_title" maxlength="256" required />
+                        </div>
+                    </div>
+                    <br />
+                    <div class="row mb-1 align-items-center">
+                        <Label Class="col-sm-3" For="content" ResourceKey="Content" HelpText="Enter the content">Content: </Label>
+                        <div class="col-sm-9">
+                            <RichTextEditor Content="@_content" @ref="@RichTextEditorHtml" AllowRawHtml="@(_editor == "" || _editor == "raw")" AllowRichText="@(_editor == "" || _editor == "rich")" AllowFileManagement="@(_allowfilemanagement == "true")"></RichTextEditor>
+                            <div class="text-center"><b>@Localizer["Message.WikiLinks"]</b></div>
+                        </div>
+                    </div>
+                </div>
+                <br /><br />
+                <button type="button" class="btn btn-success me-2" @onclick="Save">@SharedLocalizer["Save"]</button>
+                <NavLink class="btn btn-secondary me-2" href="@PageState.ReturnUrl">@SharedLocalizer["Cancel"]</NavLink>
+                @if (UserSecurity.IsAuthorized(PageState.User, RoleNames.Admin))
+                {
+                    <ActionDialog Action="Delete" Security="SecurityAccessLevel.Admin" Class="btn btn-danger" OnClick="@(async () => await DeletePage(_id))" ResourceKey="DeletePage" />
+                }
+            </form>
+        </TabPanel>
+        @if (_wikicontents != null && _wikicontents.Any())
+        {
+            <TabPanel Name="History" Heading="History" ResourceKey="History">
+                <Pager Items="@_wikicontents">
+                    <Header>
+                        <th style="width: 1px;">&nbsp;</th>
+                        <th style="width: 1px;">&nbsp;</th>
+                        @if (UserSecurity.IsAuthorized(PageState.User, RoleNames.Admin))
+                        {
+                            <th style="width: 1px;">&nbsp;</th>
+                        }
+                        <th>@Localizer["Title"]</th>
+                        <th>@Localizer["CreatedOn"]</th>
+                        <th>@Localizer["CreatedBy"]</th>
+                    </Header>
+                    <Row>
+                        <td><ActionLink Action="View" Security="SecurityAccessLevel.Edit" OnClick="@(async () => await View(context))" ResourceKey="View" /></td>
+                        <td><ActionDialog Action="Restore" Security="SecurityAccessLevel.Edit" Class="btn btn-success" OnClick="@(async () => await Restore(context))" ResourceKey="Restore" /></td>
+                        @if (UserSecurity.IsAuthorized(PageState.User, RoleNames.Admin))
+                        {
+                            <td><ActionDialog Action="Delete" Security="SecurityAccessLevel.Edit" Class="btn btn-danger" OnClick="@(async () => await Delete(context))" ResourceKey="Delete" /></td>
+                        }
+                        <td>@context.Title</td>
+                        <td>@context.CreatedOn</td>
+                        <td>@context.CreatedBy</td>
+                    </Row>
+                </Pager>
+                @((MarkupString)_view)
+            </TabPanel>
+        }
+    </TabStrip>
+}
+
+@code {
+    public override SecurityAccessLevel SecurityAccessLevel { get { return SecurityAccessLevel.Edit; } }
+
+    public override string Title => "Edit Wiki Page";
+
+    public override List<Resource> Resources => new List<Resource>()
+    {
+        new Resource { ResourceType = ResourceType.Stylesheet, Url = "css/quill/quill.bubble.css" },
+        new Resource { ResourceType = ResourceType.Stylesheet, Url = "css/quill/quill.snow.css" }
+    };
+
+    private bool initialized = false;
+    private ElementReference form;
+    private bool validated = false;
+
+    private string _editor;
+    private string _allowfilemanagement;
+
+    private int _id = -1;
+    private string _title = "";
+    private RichTextEditor RichTextEditorHtml;
+    private string _content = "";
+
+    private List<WikiContent> _wikicontents;
+    private string _view = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _editor = SettingService.GetSetting(ModuleState.Settings, "Editor", "");
+            _allowfilemanagement = SettingService.GetSetting(ModuleState.Settings, "AllowFileManagement", "true");
+
+            if (PageState.QueryString.ContainsKey("id"))
+            {
+                _id = int.Parse(PageState.QueryString["id"]);
+                await Load();
+            }
+            initialized = true;
+        }
+        catch (Exception ex)
+        {
+            await logger.LogError(ex, "Error Loading WikiContent {Id} {Error}", _id, ex.Message);
+            ModuleInstance.AddModuleMessage(Localizer["Error.Load"], MessageType.Error);
+        }
+    }
+
+    private async Task Load()
+    {
+        _wikicontents = await WikiService.GetWikiContentsAsync(ModuleState.ModuleId, _id);
+        _wikicontents = _wikicontents.OrderByDescending(item => item.CreatedOn).ToList();
+        _view = "";
+
+        if (_wikicontents.Any())
+        {
+            var wiki = _wikicontents.First();
+            _title = wiki.Title;
+            _content = wiki.Content;
+            _content = Utilities.FormatContent(_content, PageState.Alias, "render");
+        }
+    }
+
+    private async Task Save()
+    {
+        validated = true;
+        var interop = new Interop(JSRuntime);
+        if (await interop.FormValid(form))
+        {
+            try
+            {
+                var newcontent = await RichTextEditorHtml.GetHtml();
+
+                if (newcontent != _content)
+                {
+                    var wikicontent = new WikiContent();
+                    wikicontent.WikiPageId = _id;
+                    wikicontent.Title = _title;
+                    wikicontent.Content = Utilities.FormatContent(newcontent, PageState.Alias, "save");
+                    wikicontent.CreatedBy = PageState.User.Username;
+                    wikicontent.CreatedOn = DateTime.UtcNow;
+                    wikicontent.ModuleId = ModuleState.ModuleId;
+                    wikicontent.AliasPath = PageState.Alias.Path;
+                    wikicontent.PagePath = PageState.Page.Path;
+                    wikicontent = await WikiService.AddWikiContentAsync(wikicontent);
+                    await logger.LogInformation("WikiContent Added {WikiContent}", wikicontent);
+
+                    if (_id == -1)
+                    {
+                        // set home page
+                        var settings = await SettingService.GetModuleSettingsAsync(ModuleState.ModuleId);
+                        settings = SettingService.SetSetting(settings, "WikiPageId", wikicontent.WikiPageId.ToString());
+                        settings = SettingService.SetSetting(settings, "PagePath", PageState.Page.Path);
+                        await SettingService.UpdateModuleSettingsAsync(settings, ModuleState.ModuleId);
+                    }
+                }
+
+                NavigationManager.NavigateTo(PageState.ReturnUrl);
+            }
+            catch (Exception ex)
+            {
+                await logger.LogError(ex, "Error Saving WikiContent {Error}", ex.Message);
+                ModuleInstance.AddModuleMessage(Localizer["Error.Save"], MessageType.Error);
+            }
+        }
+        else
+        {
+            AddModuleMessage(SharedLocalizer["Message.InfoRequired"], MessageType.Warning);
+        }
+    }
+
+    private async Task View(WikiContent wikicontent)
+    {
+        try
+        {
+            _view = wikicontent.Content;
+            _view = Utilities.FormatContent(_view, PageState.Alias, "render");
+            _view = "<div class=\"app-pane-admin-border\">" + _view + "</div>";
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            await logger.LogError(ex, "Error Viewing WikiContent {Error}", ex.Message);
+            AddModuleMessage(Localizer["Error.View"], MessageType.Error);
+        }
+    }
+
+    private async Task Restore(WikiContent wikicontent)
+    {
+        try
+        {
+            var WikiContent = new WikiContent();
+            WikiContent.WikiPageId = wikicontent.WikiPageId;
+            WikiContent.Title = wikicontent.Title;
+            WikiContent.Content = wikicontent.Content;
+            WikiContent.CreatedBy = wikicontent.CreatedBy;
+            WikiContent.CreatedOn = DateTime.UtcNow;
+            WikiContent.ModuleId = ModuleState.ModuleId;
+            WikiContent.AliasPath = PageState.Alias.Path;
+            WikiContent.PagePath = PageState.Page.Path;
+            await WikiService.AddWikiContentAsync(WikiContent);
+            await logger.LogInformation("WikiContent Restored {WikiContent}", WikiContent);
+            AddModuleMessage(Localizer["Message.Restore"], MessageType.Success);
+            await Load();
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            await logger.LogError(ex, "Error Restoring WikiContent {Error}", ex.Message);
+            AddModuleMessage(Localizer["Error.Restore"], MessageType.Error);
+        }
+    }
+
+    private async Task Delete(WikiContent wikicontent)
+    {
+        try
+        {
+            await WikiService.DeleteWikiContentAsync(wikicontent.WikiContentId);
+            await logger.LogInformation("WikiContent Deleted {WikiContent}", wikicontent);
+            AddModuleMessage(Localizer["Message.Delete"], MessageType.Success);
+            await Load();
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            await logger.LogError(ex, "Error Deleting WikiContent {Error}", ex.Message);
+            AddModuleMessage(Localizer["Error.Delete"], MessageType.Error);
+        }
+    }
+
+    private async Task DeletePage(int wikipageid)
+    {
+        try
+        {
+            await WikiService.DeleteWikiPageAsync(wikipageid);
+            await logger.LogInformation("WikiPage Deleted {WikiPageId}", wikipageid);
+            AddModuleMessage(Localizer["Message.PageDelete"], MessageType.Success);
+            await Load();
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            await logger.LogError(ex, "Error Deleting WikiPage {Error}", ex.Message);
+            AddModuleMessage(Localizer["Error.PageDelete"], MessageType.Error);
+        }
+    }
+}

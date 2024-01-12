@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Client\Oqtane.Wiki.Client.csproj" />
+    <ProjectReference Include="..\Server\Oqtane.Wiki.Server.csproj" />
+    <ProjectReference Include="..\Shared\Oqtane.Wiki.Shared.csproj" />
+  </ItemGroup>
+
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+    <Exec Command="IF $(ConfigurationName) == Debug (debug.cmd)" />
+    <Exec Command="IF $(ConfigurationName) == Release (release.cmd)" />
+  </Target>
+
+</Project>
