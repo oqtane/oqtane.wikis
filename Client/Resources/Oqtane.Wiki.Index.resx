@@ -139,7 +139,7 @@
     <value>No Wiki Pages Contain The Criteria Specified</value>
   </data>
   <data name="Message.NotFound" xml:space="preserve">
-    <value>Specified Wiki Page Does Not Exist</value>
+    <value>Wiki Page Does Not Exist</value>
   </data>
   <data name="Results" xml:space="preserve">
     <value>Results</value>

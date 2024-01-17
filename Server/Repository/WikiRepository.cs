@@ -79,18 +79,7 @@ namespace Oqtane.Wiki.Repository
 
             WikiContent.Content = ConvertWikiLinks(WikiContent);
 
-            // save WikiPage
-            var WikiPage = WikiContent.WikiPage;
-
-            // add new WikiContent if content has changed
-            var wikicontent = GetWikiContent(WikiContent.WikiPageId, -1);
-            if (wikicontent == null || wikicontent.Content != WikiContent.Content)
-            {
-                WikiContent.WikiPage = null; // detach
-                _db.WikiContent.Add(WikiContent);
-                _db.SaveChanges();
-            }
-
+            // update WikiPage
             var wikipage = _db.WikiPage.Find(WikiContent.WikiPageId);
             if (wikipage != null)
             {
@@ -102,10 +91,20 @@ namespace Oqtane.Wiki.Repository
                 _db.SaveChanges();
             }
 
-            // restore WikiPage
-            WikiContent.WikiPage = WikiPage;
+            // preserve page path
+            var pagepath = WikiContent.WikiPage.PagePath;
 
-            ManageWikiLinks(WikiContent);
+            // add new WikiContent if content has changed
+            var wikicontent = GetWikiContent(WikiContent.WikiPageId, -1);
+            if (wikicontent == null || wikicontent.Content != WikiContent.Content)
+            {
+                WikiContent.WikiPage = null; // detach WikiPage entity
+                _db.WikiContent.Add(WikiContent);
+                _db.SaveChanges();
+            }
+
+            // process WikiLinks
+            ManageWikiLinks(WikiContent, pagepath);
 
             return WikiContent;
         }
@@ -181,11 +180,11 @@ namespace Oqtane.Wiki.Repository
             return Tags;
         }
 
-        private void ManageWikiLinks(WikiContent WikiContent)
+        private void ManageWikiLinks(WikiContent WikiContent, string PagePath)
         {
             // hyperlinks are in the form PagePath/!/##/Title
             var ids = new List<int>();
-            var prefix = WikiContent.WikiPage.PagePath + "/!/";
+            var prefix = PagePath + "/!/";
             int index = WikiContent.Content.IndexOf(prefix);
             while (index != -1)
             {
