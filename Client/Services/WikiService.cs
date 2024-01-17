@@ -20,34 +20,34 @@ namespace Oqtane.Wiki.Services
 
          private string Apiurl => CreateApiUrl("Wiki", _siteState.Alias);
 
-        public async Task<List<WikiContent>> GetWikiContentsAsync(int ModuleId, string Search)
+        public async Task<List<WikiContent>> GetWikiContentsAsync(int ModuleId, string Search, string Tag)
         {
-            return await GetJsonAsync<List<WikiContent>>(CreateAuthorizationPolicyUrl($"{Apiurl}?moduleid={ModuleId}&wikipageid=-1&search={Search}", EntityNames.Module, ModuleId), Enumerable.Empty<WikiContent>().ToList());
+            return await GetJsonAsync<List<WikiContent>>(CreateAuthorizationPolicyUrl($"{Apiurl}/search?moduleid={ModuleId}&&search={Search}&tag={Tag}", EntityNames.Module, ModuleId), Enumerable.Empty<WikiContent>().ToList());
         }
 
         public async Task<List<WikiContent>> GetWikiContentsAsync(int ModuleId, int WikiPageId)
         {
-            return await GetJsonAsync<List<WikiContent>>(CreateAuthorizationPolicyUrl($"{Apiurl}?moduleid={ModuleId}&wikipageid={WikiPageId}&search=", EntityNames.Module, ModuleId), Enumerable.Empty<WikiContent>().ToList());
+            return await GetJsonAsync<List<WikiContent>>(CreateAuthorizationPolicyUrl($"{Apiurl}?moduleid={ModuleId}&wikipageid={WikiPageId}", EntityNames.Module, ModuleId), Enumerable.Empty<WikiContent>().ToList());
         }
 
         public async Task<WikiContent> GetWikiContentAsync(int ModuleId, int WikiPageId)
         {
-            return await GetJsonAsync<WikiContent>(CreateAuthorizationPolicyUrl($"{Apiurl}/{ModuleId}/{WikiPageId}", EntityNames.Module, ModuleId));
+            return await GetJsonAsync<WikiContent>(CreateAuthorizationPolicyUrl($"{Apiurl}/{WikiPageId}", EntityNames.Module, ModuleId));
         }
 
         public async Task<WikiContent> GetWikiContentAsync(int ModuleId, int WikiPageId, int WikiContentId)
         {
-            return await GetJsonAsync<WikiContent>(CreateAuthorizationPolicyUrl($"{Apiurl}/{WikiContentId}", EntityNames.Module, ModuleId));
+            return await GetJsonAsync<WikiContent>(CreateAuthorizationPolicyUrl($"{Apiurl}/{WikiPageId}/{WikiContentId}", EntityNames.Module, ModuleId));
         }
 
         public async Task<WikiContent> AddWikiContentAsync(WikiContent WikiContent)
         {
-            return await PostJsonAsync<WikiContent>(CreateAuthorizationPolicyUrl($"{Apiurl}", EntityNames.Module, WikiContent.ModuleId), WikiContent);
+            return await PostJsonAsync<WikiContent>(CreateAuthorizationPolicyUrl($"{Apiurl}", EntityNames.Module, WikiContent.WikiPage.ModuleId), WikiContent);
         }
 
-        public async Task DeleteWikiContentAsync(int WikiContentId)
+        public async Task DeleteWikiContentAsync(int WikiPageId, int WikiContentId)
         {
-            await DeleteAsync($"{Apiurl}/{WikiContentId}");
+            await DeleteAsync($"{Apiurl}/{WikiPageId}/{WikiContentId}");
         }
         public async Task DeleteWikiPageAsync(int WikiPageId)
         {

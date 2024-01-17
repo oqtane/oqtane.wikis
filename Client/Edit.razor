@@ -25,8 +25,15 @@
                     <div class="row mb-1 align-items-center">
                         <Label Class="col-sm-3" For="content" ResourceKey="Content" HelpText="Enter the content">Content: </Label>
                         <div class="col-sm-9">
-                            <RichTextEditor Content="@_content" @ref="@RichTextEditorHtml" AllowRawHtml="@(_editor == "" || _editor == "raw")" AllowRichText="@(_editor == "" || _editor == "rich")" AllowFileManagement="@(_allowfilemanagement == "true")"></RichTextEditor>
                             <div class="text-center"><b>@Localizer["Message.WikiLinks"]</b></div>
+                            <RichTextEditor Content="@_content" @ref="@RichTextEditorHtml" AllowRawHtml="@(_editor == "" || _editor == "raw")" AllowRichText="@(_editor == "" || _editor == "rich")" AllowFileManagement="@(_allowfilemanagement == "true")"></RichTextEditor>
+                        </div>
+                    </div>
+                    <br />
+                    <div class="row mb-1 align-items-center">
+                        <Label Class="col-sm-3" For="tags" ResourceKey="Tags" HelpText="Optionally enter a comma-delimited list of tags related to the content">Tags: </Label>
+                        <div class="col-sm-9">
+                            <input id="tags" type="text" class="form-control" @bind="@_tags" maxlength="256" />
                         </div>
                     </div>
                 </div>
@@ -50,7 +57,6 @@
                         {
                             <th style="width: 1px;">&nbsp;</th>
                         }
-                        <th>@Localizer["Title"]</th>
                         <th>@Localizer["CreatedOn"]</th>
                         <th>@Localizer["CreatedBy"]</th>
                     </Header>
@@ -61,7 +67,6 @@
                         {
                             <td><ActionDialog Action="Delete" Security="SecurityAccessLevel.Edit" Class="btn btn-danger" OnClick="@(async () => await Delete(context))" ResourceKey="Delete" /></td>
                         }
-                        <td>@context.Title</td>
                         <td>@context.CreatedOn</td>
                         <td>@context.CreatedBy</td>
                     </Row>
@@ -95,6 +100,7 @@
     private string _title = "";
     private RichTextEditor RichTextEditorHtml;
     private string _content = "";
+    private string _tags = "";
 
     private List<WikiContent> _wikicontents;
     private string _view = "";
@@ -128,10 +134,11 @@
 
         if (_wikicontents.Any())
         {
-            var wiki = _wikicontents.First();
-            _title = wiki.Title;
-            _content = wiki.Content;
+            var wikicontent = _wikicontents.First();
+            _title = wikicontent.WikiPage.Title;
+            _content = wikicontent.Content;
             _content = Utilities.FormatContent(_content, PageState.Alias, "render");
+            _tags = wikicontent.WikiPage.Tags;
         }
     }
 
@@ -143,30 +150,29 @@
         {
             try
             {
-                var newcontent = await RichTextEditorHtml.GetHtml();
+                _content = await RichTextEditorHtml.GetHtml();
 
-                if (newcontent != _content)
+                var wikicontent = new WikiContent();
+                wikicontent.WikiPageId = _id;
+                wikicontent.Content = Utilities.FormatContent(_content, PageState.Alias, "save");
+                wikicontent.CreatedBy = PageState.User.Username;
+                wikicontent.CreatedOn = DateTime.UtcNow;
+                wikicontent.WikiPage = new WikiPage();
+                wikicontent.WikiPage.ModuleId = ModuleState.ModuleId;
+                wikicontent.WikiPage.Title = _title;
+                wikicontent.WikiPage.Tags = _tags;
+                wikicontent.WikiPage.AliasPath = PageState.Alias.Path;
+                wikicontent.WikiPage.PagePath = PageState.Page.Path;
+                wikicontent = await WikiService.AddWikiContentAsync(wikicontent);
+                await logger.LogInformation("WikiContent Added {WikiContent}", wikicontent);
+
+                if (_id == -1)
                 {
-                    var wikicontent = new WikiContent();
-                    wikicontent.WikiPageId = _id;
-                    wikicontent.Title = _title;
-                    wikicontent.Content = Utilities.FormatContent(newcontent, PageState.Alias, "save");
-                    wikicontent.CreatedBy = PageState.User.Username;
-                    wikicontent.CreatedOn = DateTime.UtcNow;
-                    wikicontent.ModuleId = ModuleState.ModuleId;
-                    wikicontent.AliasPath = PageState.Alias.Path;
-                    wikicontent.PagePath = PageState.Page.Path;
-                    wikicontent = await WikiService.AddWikiContentAsync(wikicontent);
-                    await logger.LogInformation("WikiContent Added {WikiContent}", wikicontent);
-
-                    if (_id == -1)
-                    {
-                        // set home page
-                        var settings = await SettingService.GetModuleSettingsAsync(ModuleState.ModuleId);
-                        settings = SettingService.SetSetting(settings, "WikiPageId", wikicontent.WikiPageId.ToString());
-                        settings = SettingService.SetSetting(settings, "PagePath", PageState.Page.Path);
-                        await SettingService.UpdateModuleSettingsAsync(settings, ModuleState.ModuleId);
-                    }
+                    // set home page
+                    var settings = await SettingService.GetModuleSettingsAsync(ModuleState.ModuleId);
+                    settings = SettingService.SetSetting(settings, "WikiPageId", wikicontent.WikiPageId.ToString());
+                    settings = SettingService.SetSetting(settings, "PagePath", PageState.Page.Path);
+                    await SettingService.UpdateModuleSettingsAsync(settings, ModuleState.ModuleId);
                 }
 
                 NavigationManager.NavigateTo(PageState.ReturnUrl);
@@ -205,13 +211,15 @@
         {
             var WikiContent = new WikiContent();
             WikiContent.WikiPageId = wikicontent.WikiPageId;
-            WikiContent.Title = wikicontent.Title;
             WikiContent.Content = wikicontent.Content;
             WikiContent.CreatedBy = wikicontent.CreatedBy;
             WikiContent.CreatedOn = DateTime.UtcNow;
-            WikiContent.ModuleId = ModuleState.ModuleId;
-            WikiContent.AliasPath = PageState.Alias.Path;
-            WikiContent.PagePath = PageState.Page.Path;
+            WikiContent.WikiPage = new WikiPage();
+            WikiContent.WikiPage.ModuleId = ModuleState.ModuleId;
+            WikiContent.WikiPage.Title = wikicontent.WikiPage.Title;
+            WikiContent.WikiPage.Tags = wikicontent.WikiPage.Tags;
+            WikiContent.WikiPage.AliasPath = PageState.Alias.Path;
+            WikiContent.WikiPage.PagePath = PageState.Page.Path;
             await WikiService.AddWikiContentAsync(WikiContent);
             await logger.LogInformation("WikiContent Restored {WikiContent}", WikiContent);
             AddModuleMessage(Localizer["Message.Restore"], MessageType.Success);
@@ -229,7 +237,7 @@
     {
         try
         {
-            await WikiService.DeleteWikiContentAsync(wikicontent.WikiContentId);
+            await WikiService.DeleteWikiContentAsync(wikicontent.WikiPageId, wikicontent.WikiContentId);
             await logger.LogInformation("WikiContent Deleted {WikiContent}", wikicontent);
             AddModuleMessage(Localizer["Message.Delete"], MessageType.Success);
             await Load();

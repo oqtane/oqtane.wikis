@@ -8,13 +8,6 @@
 <form @ref="form" class="@(validated ? "was-validated" : "needs-validation")" novalidate>
     <div class="container">
         <div class="row mb-1 align-items-center">
-            <Label Class="col-sm-3" For="template" ResourceKey="Template" ResourceType="@resourceType" HelpText="Enter the wiki template">Template: </Label>
-            <div class="col-sm-9">
-                <textarea id="template" class="form-control" @bind="@_template" rows="5" required></textarea>
-            </div>
-        </div>
-        <hr />
-        <div class="row mb-1 align-items-center">
             <Label Class="col-sm-3" For="editor" ResourceKey="Editor" ResourceType="@resourceType" HelpText="Specify the preferred authoring experience">Editor: </Label>
             <div class="col-sm-9">
                 <select id="editor" class="form-select" @bind="@_editor">
@@ -25,7 +18,7 @@
             </div>
         </div>
         <div class="row mb-1 align-items-center">
-            <Label Class="col-sm-3" For="files" ResourceKey="AllowFileManagement" ResourceType="@resourceType" HelpText="Specify If Editors Can Upload and Select Files">Allow File Management: </Label>
+            <Label Class="col-sm-3" For="files" ResourceKey="AllowFileManagement" ResourceType="@resourceType" HelpText="Specify if editors can upload and select files">Allow File Management: </Label>
             <div class="col-sm-9">
                 <select id="files" class="form-select" @bind="@_allowfilemanagement">
                     <option value="true">@SharedLocalizer["Yes"]</option>
@@ -42,7 +35,6 @@
     private ElementReference form;
     private bool validated = false;
 
-    private string _template;
     private string _editor;
     private string _allowfilemanagement;
 
@@ -50,7 +42,6 @@
     {
         try
         {
-            _template = SettingService.GetSetting(ModuleState.Settings, "Template", "<h2>[TITLE]</h2><p>[CONTENT]</p>");
             _editor = SettingService.GetSetting(ModuleState.Settings, "Editor", "");
             _allowfilemanagement = SettingService.GetSetting(ModuleState.Settings, "AllowFileManagement", "true");
         }
@@ -65,7 +56,6 @@
         try
         {
             var settings = await SettingService.GetModuleSettingsAsync(ModuleState.ModuleId);
-            settings = SettingService.SetSetting(settings, "Template", _template);
             settings = SettingService.SetSetting(settings, "Editor", _editor);
             settings = SettingService.SetSetting(settings, "AllowFileManagement", _allowfilemanagement);
             settings = SettingService.SetSetting(settings, "PagePath", PageState.Page.Path);

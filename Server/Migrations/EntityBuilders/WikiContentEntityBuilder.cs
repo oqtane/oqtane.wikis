@@ -24,7 +24,6 @@ namespace Oqtane.Wiki.Migrations.EntityBuilders
         {
             WikiContentId = AddAutoIncrementColumn(table, "WikiContentId");
             WikiPageId = AddIntegerColumn(table, "WikiPageId");
-            Title = AddStringColumn(table, "Title", 256, false, true);
             Content = AddMaxStringColumn(table, "Content");
             CreatedBy = AddStringColumn(table, "CreatedBy", 256);
             CreatedOn = AddDateTimeColumn(table, "CreatedOn");
@@ -34,7 +33,6 @@ namespace Oqtane.Wiki.Migrations.EntityBuilders
 
         public OperationBuilder<AddColumnOperation> WikiContentId { get; set; }
         public OperationBuilder<AddColumnOperation> WikiPageId { get; set; }
-        public OperationBuilder<AddColumnOperation> Title { get; set; }
         public OperationBuilder<AddColumnOperation> Content { get; set; }
         public OperationBuilder<AddColumnOperation> CreatedBy { get; set; }
         public OperationBuilder<AddColumnOperation> CreatedOn { get; set; }

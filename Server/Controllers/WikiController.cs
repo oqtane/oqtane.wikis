@@ -32,51 +32,68 @@ namespace Oqtane.Wiki.Controllers
             _SettingRepository = SettingRepository;
         }
 
-        // GET: api/<controller>?moduleid=x&wikipageid=y&search=z
-        [HttpGet]
+        // GET: api/<controller>/search?moduleid=x&search=y&tag=z
+        [HttpGet("search")]
         [Authorize(Policy = "ViewModule")]
-        public IEnumerable<WikiContent> Get(string moduleid, string wikipageid, string search)
+        public IEnumerable<WikiContent> Search(string moduleid, string search, string tag)
         {
             if (int.TryParse(moduleid, out int ModuleId) && IsAuthorizedEntityId(EntityNames.Module, ModuleId))
             {
-                if (int.TryParse(wikipageid, out int WikiPageId) && WikiPageId != -1)
-                {
-                    return _WikiRepository.GetWikiContents(ModuleId, WikiPageId);
-                }
-                else
-                {
-                    return _WikiRepository.GetWikiContents(ModuleId, search);
-                }
+                return _WikiRepository.GetWikiContents(ModuleId, search, tag);
             }
             else
             {
                 return null;
             }
         }
-
-        // GET api/<controller>/5/6
-        [HttpGet("{moduleid}/{wikipageid}")]
+        
+        // GET: api/<controller>?moduleid=x&wikipageid=y
+        [HttpGet]
         [Authorize(Policy = "ViewModule")]
-        public WikiContent Get(int moduleid, int wikipageid)
+        public IEnumerable<WikiContent> Get(string moduleid, string wikipageid)
         {
-            WikiContent WikiContent = null;
-            if (IsAuthorizedEntityId(EntityNames.Module, moduleid))
+            if (int.TryParse(moduleid, out int ModuleId) && IsAuthorizedEntityId(EntityNames.Module, ModuleId) && int.TryParse(wikipageid, out int WikiPageId))
             {
-                List<WikiContent> WikiContents = _WikiRepository.GetWikiContents(moduleid, wikipageid).ToList();
-                if (WikiContents != null)
-                {
-                    WikiContent = WikiContents.OrderBy(item => item.CreatedOn).Last();
-                }
+                return _WikiRepository.GetWikiContents(ModuleId, WikiPageId);
             }
-            return WikiContent;
+            else
+            {
+                return null;
+            }
         }
         
         // GET api/<controller>/5
-        [HttpGet("{id}")]
+        [HttpGet("{wikipageid}")]
         [Authorize(Policy = "ViewModule")]
-        public WikiContent Get(int id)
+        public WikiContent Get(int wikipageid)
         {
-            WikiContent WikiContent = _WikiRepository.GetWikiContent(id);
+            WikiContent WikiContent = _WikiRepository.GetWikiContent(wikipageid, -1);
+            if (WikiContent != null && IsAuthorizedEntityId(EntityNames.Module, WikiContent.WikiPage.ModuleId))
+            {
+                // get wiki links
+                WikiContent.Links = new Dictionary<int, string>();
+                foreach (var wikilink in _WikiRepository.GetWikiLinks(wikipageid).ToList())
+                {
+                    var wikicontent = _WikiRepository.GetWikiContent(wikilink.FromWikiPageId, -1);
+                    if (wikicontent != null)
+                    {
+                        WikiContent.Links.Add(wikilink.FromWikiPageId, wikicontent.WikiPage.Title);
+                    }
+                }
+            }
+            else
+            {
+                WikiContent = null;
+            }
+            return WikiContent;
+        }
+
+        // GET api/<controller>/5/6
+        [HttpGet("{wikipageid}/{id}")]
+        [Authorize(Policy = "ViewModule")]
+        public WikiContent Get(int wikipageid, int id)
+        {
+            WikiContent WikiContent = _WikiRepository.GetWikiContent(wikipageid, id);
             if (WikiContent != null && IsAuthorizedEntityId(EntityNames.Module, WikiContent.WikiPage.ModuleId))
             {
                 WikiContent = null;
@@ -89,7 +106,7 @@ namespace Oqtane.Wiki.Controllers
         [Authorize(Policy = "EditModule")]
         public WikiContent Post([FromBody] WikiContent WikiContent)
         {
-            if (ModelState.IsValid && IsAuthorizedEntityId(EntityNames.Module, WikiContent.ModuleId))
+            if (ModelState.IsValid && IsAuthorizedEntityId(EntityNames.Module, WikiContent.WikiPage.ModuleId))
             {
                 WikiContent = _WikiRepository.AddWikiContent(WikiContent);
                 _logger.Log(LogLevel.Information, this, LogFunction.Create, "WikiContent Added {WikiContent}", WikiContent);
@@ -98,11 +115,11 @@ namespace Oqtane.Wiki.Controllers
         }
 
         // DELETE api/<controller>/5
-        [HttpDelete("{id}")]
+        [HttpDelete("{wikipageid}/{id}")]
         [Authorize(Roles = RoleNames.Admin)]
-        public void Delete(int id)
+        public void Delete(int wikipageid, int id)
         {
-            WikiContent WikiContent = _WikiRepository.GetWikiContent(id);
+            WikiContent WikiContent = _WikiRepository.GetWikiContent(wikipageid, id);
             if (WikiContent != null)
             {
                 _WikiRepository.DeleteWikiContent(id);
@@ -140,11 +157,11 @@ namespace Oqtane.Wiki.Controllers
             rss += "<link>" + rooturl + pagepath + "</link>" + Environment.NewLine;
             rss += "<description>" + WebUtility.HtmlEncode(site.Name) + "</description>" + Environment.NewLine;
 
-            foreach (var WikiContent in _WikiRepository.GetWikiContents(id, ""))
+            foreach (var WikiContent in _WikiRepository.GetWikiContents(id, "", ""))
             {
                 rss += "<item>" + Environment.NewLine;
-                rss += "<title>" + WebUtility.HtmlEncode(WikiContent.Title) + "</title>" + Environment.NewLine;
-                var parameters = Utilities.AddUrlParameters(WikiContent.WikiPageId, Common.FormatSlug(WikiContent.Title));
+                rss += "<title>" + WebUtility.HtmlEncode(WikiContent.WikiPage.Title) + "</title>" + Environment.NewLine;
+                var parameters = Utilities.AddUrlParameters(WikiContent.WikiPageId, Common.FormatSlug(WikiContent.WikiPage.Title));
                 rss += "<link>" + rooturl + Utilities.NavigateUrl(alias.Path, pagepath, parameters) + "</link>" + Environment.NewLine;
                 rss += "<description>" + WebUtility.HtmlEncode(Common.CreateSummary(WikiContent.Content, 200, "")) + "</description>" + Environment.NewLine;
                 rss += "<pubDate>" + WikiContent.CreatedOn.ToString("r") + "</pubDate>";

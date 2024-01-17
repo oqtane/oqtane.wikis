@@ -11,7 +11,7 @@ namespace Oqtane.Wiki.Migrations.EntityBuilders
     {
         private const string _entityTableName = "WikiPage";
         private readonly PrimaryKey<WikiPageEntityBuilder> _primaryKey = new("PK_WikiPage", x => x.WikiPageId);
-        private readonly ForeignKey<WikiPageEntityBuilder> _moduleForeignKey = new("FK_Wiki_Module", x => x.ModuleId, "Module", "ModuleId", ReferentialAction.Cascade);
+        private readonly ForeignKey<WikiPageEntityBuilder> _moduleForeignKey = new("FK_WikiPage_Module", x => x.ModuleId, "Module", "ModuleId", ReferentialAction.Cascade);
 
         public WikiPageEntityBuilder(MigrationBuilder migrationBuilder, IDatabase database) : base(migrationBuilder, database)
         {
@@ -24,15 +24,23 @@ namespace Oqtane.Wiki.Migrations.EntityBuilders
         {
             WikiPageId = AddAutoIncrementColumn(table, "WikiPageId");
             ModuleId = AddIntegerColumn(table, "ModuleId");
+            Title = AddStringColumn(table, "Title", 256, true, true);
+            Tags = AddStringColumn(table, "Tags", 256, true, true);
             CreatedBy = AddStringColumn(table, "CreatedBy", 256);
             CreatedOn = AddDateTimeColumn(table, "CreatedOn");
+            ModifiedBy = AddStringColumn(table, "ModifiedBy", 256);
+            ModifiedOn = AddDateTimeColumn(table, "ModifiedOn");
 
             return this;
         }
 
         public OperationBuilder<AddColumnOperation> WikiPageId { get; set; }
         public OperationBuilder<AddColumnOperation> ModuleId { get; set; }
+        public OperationBuilder<AddColumnOperation> Title { get; set; }
+        public OperationBuilder<AddColumnOperation> Tags { get; set; }
         public OperationBuilder<AddColumnOperation> CreatedBy { get; set; }
         public OperationBuilder<AddColumnOperation> CreatedOn { get; set; }
+        public OperationBuilder<AddColumnOperation> ModifiedBy { get; set; }
+        public OperationBuilder<AddColumnOperation> ModifiedOn { get; set; }
     }
 }

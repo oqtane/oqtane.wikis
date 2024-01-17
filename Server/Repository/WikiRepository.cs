@@ -5,6 +5,8 @@ using Microsoft.EntityFrameworkCore;
 using Oqtane.Wiki.Models;
 using Oqtane.Shared;
 using Oqtane.Wiki.Shared;
+using Microsoft.EntityFrameworkCore.Metadata.Internal;
+using System;
 
 namespace Oqtane.Wiki.Repository
 {
@@ -17,13 +19,23 @@ namespace Oqtane.Wiki.Repository
             _db = context;
         }
 
-        public IEnumerable<WikiContent> GetWikiContents(int ModuleId, string Search)
+        public IEnumerable<WikiContent> GetWikiContents(int ModuleId, string Search, string Tag)
         {
-            return _db.WikiContent.Include(item => item.WikiPage)
+            var wikicontents = _db.WikiContent.Include(item => item.WikiPage)
                 .Where(item => item.WikiPage.ModuleId == ModuleId)
                 .GroupBy(item => item.WikiPageId)
-                .Select(item => item.OrderBy(item => item.CreatedOn).Last()).ToList()
-                .Where(item => string.IsNullOrEmpty(Search) || item.Title.ToLower().Contains(Search.ToLower()) || item.Content.ToLower().Contains(Search.ToLower()));
+                .Select(item => item.OrderBy(item => item.CreatedOn).Last()).ToList();
+
+            if (!string.IsNullOrEmpty(Search))
+            {
+                wikicontents = wikicontents.Where(item => item.WikiPage.Title.ToLower().Contains(Search.ToLower()) || item.Content.ToLower().Contains(Search.ToLower())).ToList();
+            }
+            if (!string.IsNullOrEmpty(Tag))
+            {
+                wikicontents = wikicontents.Where(item => ("," + item.WikiPage.Tags + ",").Contains("," + Tag.ToLower() + ",")).ToList();
+            }
+
+            return wikicontents;
         }
 
         public IEnumerable<WikiContent> GetWikiContents(int ModuleId, int WikiPageId)
@@ -32,42 +44,77 @@ namespace Oqtane.Wiki.Repository
                 .Where(item => item.WikiPage.ModuleId == ModuleId && item.WikiPageId == WikiPageId);
         }
 
-        public WikiContent GetWikiContent(int WikiContentId)
+        public WikiContent GetWikiContent(int WikiPageId, int WikiContentId)
         {
-            return _db.WikiContent.Find(WikiContentId);
-        }
+            var wikicontents = _db.WikiContent.Include(item => item.WikiPage)
+                .Where(item => item.WikiPageId == WikiPageId);
 
-        public WikiPage GetWikiPage(int WikiPageId)
-        {
-            return _db.WikiPage.Find(WikiPageId);
+            if (wikicontents.Any())
+            {
+                if (WikiContentId == -1)
+                {
+                    return wikicontents.OrderBy(item => item.CreatedOn).Last();
+                }
+                else
+                {
+                    return wikicontents.FirstOrDefault(item => item.WikiContentId == WikiContentId);
+                }
+            }
+            return null;
         }
 
         public WikiContent AddWikiContent(WikiContent WikiContent)
         {
-            WikiContent.Content = ManageWikiLinks(WikiContent);
-
             if (WikiContent.WikiPageId == -1)
             {
-                var wikipage = new WikiPage();
-                wikipage.ModuleId = WikiContent.ModuleId;
-                wikipage.CreatedBy = WikiContent.CreatedBy;
-                wikipage.CreatedOn = WikiContent.CreatedOn;
-                _db.WikiPage.Add(wikipage);
+                // create new WikiPage
+                WikiContent.WikiPage.CreatedBy = WikiContent.CreatedBy;
+                WikiContent.WikiPage.CreatedOn = WikiContent.CreatedOn;
+                WikiContent.WikiPage.ModifiedBy = WikiContent.CreatedBy;
+                WikiContent.WikiPage.ModifiedOn = WikiContent.CreatedOn;
+                _db.WikiPage.Add(WikiContent.WikiPage);
                 _db.SaveChanges();
-                WikiContent.WikiPageId = wikipage.WikiPageId;
+                WikiContent.WikiPageId = WikiContent.WikiPage.WikiPageId;
             }
 
-            _db.WikiContent.Add(WikiContent);
-            _db.SaveChanges();
+            WikiContent.Content = ConvertWikiLinks(WikiContent);
+
+            // save WikiPage
+            var WikiPage = WikiContent.WikiPage;
+
+            // add new WikiContent if content has changed
+            var wikicontent = GetWikiContent(WikiContent.WikiPageId, -1);
+            if (wikicontent == null || wikicontent.Content != WikiContent.Content)
+            {
+                WikiContent.WikiPage = null; // detach
+                _db.WikiContent.Add(WikiContent);
+                _db.SaveChanges();
+            }
+
+            var wikipage = _db.WikiPage.Find(WikiContent.WikiPageId);
+            if (wikipage != null)
+            {
+                wikipage.Title = WikiContent.WikiPage.Title;
+                wikipage.Tags = FormatTags(WikiContent.WikiPage.Tags);
+                wikipage.ModifiedBy = WikiContent.CreatedBy;
+                wikipage.ModifiedOn = WikiContent.CreatedOn;
+                _db.Entry(wikipage).State = EntityState.Modified;
+                _db.SaveChanges();
+            }
+
+            // restore WikiPage
+            WikiContent.WikiPage = WikiPage;
+
+            ManageWikiLinks(WikiContent);
 
             return WikiContent;
         }
 
-        private string ManageWikiLinks(WikiContent WikiContent)
+        private string ConvertWikiLinks(WikiContent WikiContent)
         {
             var content = WikiContent.Content;
 
-            // wiki links are in the form [[link]]
+            // wiki links are in the form [[title]]
             var links = new List<string>();
             int index = content.IndexOf("[[");
             while (index != -1)
@@ -81,27 +128,30 @@ namespace Oqtane.Wiki.Repository
 
             if (links.Count > 0)
             {
-                var wikicontents = GetWikiContents(WikiContent.ModuleId, "").ToList();
+                var wikicontents = GetWikiContents(WikiContent.WikiPage.ModuleId, "", "").ToList();
 
                 foreach (var link in links)
                 {
-                    var wikicontent = wikicontents.FirstOrDefault(item => item.Title == link);
+                    var wikicontent = wikicontents.FirstOrDefault(item => item.WikiPage.Title == link);
 
                     if (wikicontent == null)
                     {
                         // create new WikiPage
                         var wikipage = new WikiPage();
-                        wikipage.ModuleId = WikiContent.ModuleId;
+                        wikipage.ModuleId = WikiContent.WikiPage.ModuleId;
+                        wikipage.Title = link;
+                        wikipage.Tags = "";
                         wikipage.CreatedBy = WikiContent.CreatedBy;
                         wikipage.CreatedOn = WikiContent.CreatedOn;
+                        wikipage.ModifiedBy = WikiContent.CreatedBy;
+                        wikipage.ModifiedOn = WikiContent.CreatedOn;
                         _db.WikiPage.Add(wikipage);
                         _db.SaveChanges();
 
-                        // create initial WikiContent
+                        // create WikiContent for WikiPage
                         wikicontent = new WikiContent();
                         wikicontent.WikiPageId = wikipage.WikiPageId;
-                        wikicontent.Title = link;
-                        wikicontent.Content = $"<p>{wikicontent.Title}</p>";
+                        wikicontent.Content = $"<p>{link}</p>";
                         wikicontent.CreatedBy = WikiContent.CreatedBy;
                         wikicontent.CreatedOn = WikiContent.CreatedOn;
                         _db.WikiContent.Add(wikicontent);
@@ -109,12 +159,72 @@ namespace Oqtane.Wiki.Repository
                     }
 
                     // replace wiki link with hyperlink
-                    var parameters = Utilities.AddUrlParameters(wikicontent.WikiPageId, Common.FormatSlug(wikicontent.Title));
-                    content = WikiContent.Content.Replace($"[[{link}]]", $"<a href=\"{Utilities.NavigateUrl(WikiContent.AliasPath, WikiContent.PagePath, parameters)}\">{link}</a>");
+                    var parameters = Utilities.AddUrlParameters(wikicontent.WikiPageId, Common.FormatSlug(wikicontent.WikiPage.Title));
+                    content = WikiContent.Content.Replace($"[[{link}]]", $"<a href=\"{Utilities.NavigateUrl(WikiContent.WikiPage.AliasPath, WikiContent.WikiPage.PagePath, parameters)}\">{link}</a>");
                 }
             }
 
             return content;
+        }
+
+        private string FormatTags(string Tags)
+        {
+            if (!string.IsNullOrEmpty(Tags))
+            {
+                var tags = Tags.Split(",", StringSplitOptions.RemoveEmptyEntries);
+                for (int i = 0; i < tags.Length; i++)
+                {
+                    tags[i] = tags[i].Trim().ToLower();
+                }
+                Tags = string.Join(",", tags);
+            }
+            return Tags;
+        }
+
+        private void ManageWikiLinks(WikiContent WikiContent)
+        {
+            // hyperlinks are in the form PagePath/!/##/Title
+            var ids = new List<int>();
+            var prefix = WikiContent.WikiPage.PagePath + "/!/";
+            int index = WikiContent.Content.IndexOf(prefix);
+            while (index != -1)
+            {
+                if (WikiContent.Content.IndexOf("/", index + prefix.Length) != -1)
+                {
+                    ids.Add(int.Parse(WikiContent.Content.Substring(index + prefix.Length, WikiContent.Content.IndexOf("/", index + prefix.Length) - index - prefix.Length)));
+                }
+                index = WikiContent.Content.IndexOf(prefix, index + 1);
+            }
+
+            // get current WikiLinks
+            var wikilinks = _db.WikiLink.Where(item => item.FromWikiPageId == WikiContent.WikiPageId).ToList();
+
+            foreach (var id in ids)
+            {
+                var wikilink = wikilinks.FirstOrDefault(item => item.ToWikiPageId == id);
+                if (wikilink == null)
+                {
+                    // add new WikiLink
+                    wikilink = new WikiLink();
+                    wikilink.FromWikiPageId = WikiContent.WikiPageId;
+                    wikilink.ToWikiPageId = id;
+                    wikilink.CreatedBy = WikiContent.CreatedBy;
+                    wikilink.CreatedOn = WikiContent.CreatedOn;
+                    _db.WikiLink.Add(wikilink);
+                    _db.SaveChanges();
+                }
+                else
+                {
+                    wikilinks.Remove(wikilink);
+                }
+            }
+
+            // remaining WikiLinks are orphans
+            foreach (var wikilink in wikilinks)
+            {
+                _db.WikiLink.Remove(wikilink);
+                _db.SaveChanges();
+            }
         }
 
         public void DeleteWikiContent(int WikiContentId)
@@ -124,11 +234,27 @@ namespace Oqtane.Wiki.Repository
             _db.SaveChanges();
         }
 
+        public WikiPage GetWikiPage(int WikiPageId)
+        {
+            return _db.WikiPage.Find(WikiPageId);
+        }
+
         public void DeleteWikiPage(int WikiPageId)
         {
             WikiPage WikiPage = _db.WikiPage.Find(WikiPageId);
             _db.WikiPage.Remove(WikiPage);
             _db.SaveChanges();
+
+            foreach (var wikilink in GetWikiLinks(WikiPageId))
+            {
+                _db.WikiLink.Remove(wikilink);
+                _db.SaveChanges();
+            }
+        }
+
+        public IEnumerable<WikiLink> GetWikiLinks(int ToWikiPageId)
+        {
+            return _db.WikiLink.Where(item => item.ToWikiPageId == ToWikiPageId);
         }
     }
 }

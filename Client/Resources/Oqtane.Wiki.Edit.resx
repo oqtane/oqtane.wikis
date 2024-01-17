@@ -190,7 +190,7 @@
     <value>Wiki Page Deleted</value>
   </data>
   <data name="Message.WikiLinks" xml:space="preserve">
-    <value>Use Wiki Syntax [[Page Name]] To Create Links To New Wiki Pages</value>
+    <value>Use Wiki Syntax [[Title]] To Create Links To New Wiki Pages</value>
   </data>
   <data name="Restore.Header" xml:space="preserve">
     <value>Restore Version</value>
@@ -206,5 +206,11 @@
   </data>
   <data name="View.Text" xml:space="preserve">
     <value>View</value>
+  </data>
+  <data name="Tags.HelpText" xml:space="preserve">
+    <value>Optionally enter a comma-delimited list of tags related to the wiki page content</value>
+  </data>
+  <data name="Tags.Text" xml:space="preserve">
+    <value>Tags:</value>
   </data>
 </root>

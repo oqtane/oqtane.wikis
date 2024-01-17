@@ -22,6 +22,9 @@ namespace Oqtane.Wiki.Migrations
 
             var wikiContentEntityBuilder = new WikiContentEntityBuilder(migrationBuilder, ActiveDatabase);
             wikiContentEntityBuilder.Create();
+
+            var wikiLinkEntityBuilder = new WikiLinkEntityBuilder(migrationBuilder, ActiveDatabase);
+            wikiLinkEntityBuilder.Create();
         }
 
         protected override void Down(MigrationBuilder migrationBuilder)
@@ -31,6 +34,9 @@ namespace Oqtane.Wiki.Migrations
 
             var wikiContentEntityBuilder = new WikiContentEntityBuilder(migrationBuilder, ActiveDatabase);
             wikiContentEntityBuilder.Drop();
+
+            var wikiLinkEntityBuilder = new WikiLinkEntityBuilder(migrationBuilder, ActiveDatabase);
+            wikiLinkEntityBuilder.Drop();
         }
     }
 }

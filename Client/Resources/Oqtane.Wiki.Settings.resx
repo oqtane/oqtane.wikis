@@ -117,12 +117,6 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
-  <data name="Template.HelpText" xml:space="preserve">
-    <value>Enter the wiki template</value>
-  </data>
-  <data name="Template.Text" xml:space="preserve">
-    <value>Template:</value>
-  </data>
   <data name="Editor.HelpText" xml:space="preserve">
     <value>Specify the preferred wiki authoring experience</value>
   </data>
@@ -139,7 +133,7 @@
     <value>Rich Text Editor Only</value>
   </data>
   <data name="AllowFileManagement.HelpText" xml:space="preserve">
-    <value>Allow authors to upload and include images</value>
+    <value>Specify if editors can upload and select files</value>
   </data>
   <data name="AllowFileManagement.Text" xml:space="preserve">
     <value>Allow File Management?</value>

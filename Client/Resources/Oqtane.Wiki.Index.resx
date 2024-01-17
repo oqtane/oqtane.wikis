@@ -142,6 +142,18 @@
     <value>Specified Wiki Page Does Not Exist</value>
   </data>
   <data name="Results" xml:space="preserve">
-    <value>Wiki Search Results</value>
+    <value>Results</value>
+  </data>
+  <data name="By" xml:space="preserve">
+    <value>by</value>
+  </data>
+  <data name="LastEdited" xml:space="preserve">
+    <value>This page was last edited on</value>
+  </data>
+  <data name="Links" xml:space="preserve">
+    <value>Linked from</value>
+  </data>
+  <data name="Tags" xml:space="preserve">
+    <value>Tags</value>
   </data>
 </root>

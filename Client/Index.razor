@@ -15,28 +15,24 @@
         <div class="col-sm-12 col-md-9 col-lg-6">
             <div class="input-group">
                 <NavLink class="btn btn-primary" href="@NavigateUrl()">@Localizer["Home"]</NavLink>
-                <input class="form-control" @bind="@_search" placeholder="Search..." />
+                <input class="form-control" @bind="@_search" placeholder="@SharedLocalizer["Search"]..." />
                 <button type="button" class="btn btn-primary" @onclick="Search">@SharedLocalizer["Search"]</button>
                 <button type="button" class="btn btn-secondary" @onclick="Reset">@SharedLocalizer["Reset"]</button>
-                <a href="@_rss" target="_new" class="btn btn-info">@Localizer["RSS"]</a>
+                <a href="/api/wiki/rss/@ModuleState.ModuleId" target="_new" class="btn btn-info">@Localizer["RSS"]</a>
             </div>
         </div>
     </div>
 </div>
 <br />
-@if (!string.IsNullOrEmpty(_search) && _wikicontents != null)
+@if (_wikicontents != null)
 {
     @if (_wikicontents.Any())
     {
-        <Pager Items="@_wikicontents">
-            <Header>
-            <th><h3>@Localizer["Results"]</h3></th>
-            </Header>
+        <h3>@Localizer["Results"]</h3>
+        <Pager Format="Grid" Items="@_wikicontents" Columns="1">
             <Row>
-                <td>
-                    <h3><a href="@FormatUrl(context)">@context.Title</a></h3>
-                    <p>@((MarkupString)Common.CreateSummary(context.Content, 200, _search))</p>
-                </td>
+                <h3><a href="@FormatUrl(context.WikiPageId, context.WikiPage.Title)">@context.WikiPage.Title</a></h3>
+                <p>@((MarkupString)Common.CreateSummary(context.Content, 200, _search))</p>
             </Row>
         </Pager>
     }
@@ -50,8 +46,48 @@ else
     <div class="text-center">
         <ActionLink Action="Edit" Parameters="@("id=" + _id.ToString())" ReturnUrl="@PageState.Route.PathAndQuery" ResourceKey="Edit" />
     </div>
-    @((MarkupString)_content)
+    @if (_wikicontent != null)
+    {
+        <h2>@_wikicontent.WikiPage.Title</h2>
+        <hr />
+        <p>@((MarkupString)(Utilities.FormatContent(_wikicontent.Content, PageState.Alias, "render")))</p>
+        <hr />
+        <div>@Localizer["LastEdited"] <b>@_wikicontent.CreatedOn</b> @Localizer["By"] <b>@_wikicontent.CreatedBy</b></div>
 
+        @if (!string.IsNullOrEmpty(_wikicontent.WikiPage.Tags))
+        {
+            <br />
+            <div>@Localizer["Tags"]:
+            @foreach (var tag in _wikicontent.WikiPage.Tags.Split(','))
+            {
+                <a href="@PageState.Page.Path?tag=@tag" class="badge rounded-pill bg-primary me-2">@tag</a>
+            }
+            </div>
+        }
+
+        if (_wikicontent.Links.Count != 0)
+        {
+            <br />
+            <div>@Localizer["Links"]:
+            @foreach (var link in _wikicontent.Links)
+            {
+                <a href="@FormatUrl(link.Key, link.Value)" class="me-2">@link.Value</a>
+            }
+            </div>
+        }
+    }
+    else
+    {
+        <br />
+        if (_id != -1)
+        {
+            <div class="text-center">@Localizer["Message.NotFound"]</div>
+        }
+        else
+        {
+            <div class="text-center">@Localizer["Message.Initialize"]</div>
+        }
+    }
 }
 <br />
 
@@ -61,11 +97,8 @@ else
     private List<WikiContent> _wikicontents;
     private string _search;
 
-    private string _template;
     private int _id = -1;
-    private string _content;
-
-    private string _rss = "";
+    private WikiContent _wikicontent;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -73,42 +106,38 @@ else
         {
             _wikicontents = null;
 
-            _template = SettingService.GetSetting(ModuleState.Settings, "Template", "<h2>[TITLE]</h2><p>[CONTENT]</p>");
-
-            WikiContent wikicontent = null;
-            if (!string.IsNullOrEmpty(PageState.UrlParameters) && UrlParameters.ContainsKey("id"))
+            if (PageState.QueryString.ContainsKey("tag"))
             {
-                _id = int.Parse(UrlParameters["id"]);
-                wikicontent = await WikiService.GetWikiContentAsync(ModuleState.ModuleId, _id);
+                _wikicontents = await WikiService.GetWikiContentsAsync(ModuleState.ModuleId, "", PageState.QueryString["tag"]);
+                SetPageTitle(Localizer["Results"]);
+                AddHeadContent($"<meta name=\"description\" content=\"{Localizer["Results"]}\" />");
             }
             else
             {
-                _id = int.Parse(SettingService.GetSetting(ModuleState.Settings, "WikiPageId", "-1"));
-                if (_id != -1)
+                if (!string.IsNullOrEmpty(PageState.UrlParameters) && UrlParameters.ContainsKey("id"))
                 {
-                    wikicontent = await WikiService.GetWikiContentAsync(ModuleState.ModuleId, _id);
-                }
-            }
-
-            if (wikicontent != null)
-            {
-                _content = FormatTemplate(_template, wikicontent);
-                SetPageTitle(wikicontent.Title);
-                AddHeadContent($"<meta name=\"description\" content=\"{Common.CreateSummary(wikicontent.Content, 200, "")}\" />");
-            }
-            else
-            {
-                if (_id != -1)
-                {
-                    _content = $"<div class=\"text-center\">{Localizer["Message.NotFound"]}</div>";
+                    _id = int.Parse(UrlParameters["id"]);
+                    _wikicontent = await WikiService.GetWikiContentAsync(ModuleState.ModuleId, _id);
                 }
                 else
                 {
-                    _content = $"<div class=\"text-center\">{Localizer["Message.Initialize"]}</div>";
+                    _id = int.Parse(SettingService.GetSetting(ModuleState.Settings, "WikiPageId", "-1"));
+                    if (_id != -1)
+                    {
+                        _wikicontent = await WikiService.GetWikiContentAsync(ModuleState.ModuleId, _id);
+                        if (_wikicontent == null)
+                        {
+                            _id = -1;
+                        }
+                    }
                 }
             }
 
-            _rss = $"/api/wiki/rss/{ModuleState.ModuleId}";
+            if (_wikicontent != null)
+            {
+                SetPageTitle(_wikicontent.WikiPage.Title);
+                AddHeadContent($"<meta name=\"description\" content=\"{Common.CreateSummary(_wikicontent.Content, 200, "")}\" />");
+            }
         }
         catch (Exception ex)
         {
@@ -117,20 +146,9 @@ else
         }
     }
 
-    private string FormatUrl(WikiContent wikicontent)
+    private string FormatUrl(int WikiPageId, string Title)
     {
-        return NavigateUrl(PageState.Page.Path, AddUrlParameters(wikicontent.WikiPageId, Common.FormatSlug(wikicontent.Title)));
-    }
-
-    private string FormatTemplate(string template, WikiContent wikicontent)
-    {
-        template = template.Replace("[ID]", wikicontent.WikiPageId.ToString());
-        template = template.Replace("[TITLE]", wikicontent.Title);
-        template = template.Replace("[CONTENT]", Utilities.FormatContent(wikicontent.Content, PageState.Alias, "render"));
-        template = template.Replace("[CREATEDBY]", wikicontent.CreatedBy);
-        template = template.Replace("[CREATEDON]", wikicontent.CreatedOn.ToShortDateString());
-        template = template.Replace("[URL]", FormatUrl(wikicontent));
-        return template;
+        return NavigateUrl(PageState.Page.Path, AddUrlParameters(WikiPageId, Common.FormatSlug(Title)));
     }
 
     private async Task Search()
@@ -139,7 +157,7 @@ else
         {
             if (!string.IsNullOrEmpty(_search))
             {
-                _wikicontents = await WikiService.GetWikiContentsAsync(ModuleState.ModuleId, _search);
+                _wikicontents = await WikiService.GetWikiContentsAsync(ModuleState.ModuleId, _search, "");
                 SetPageTitle(Localizer["Results"]);
                 AddHeadContent($"<meta name=\"description\" content=\"{Localizer["Results"]}\" />");
                 StateHasChanged();
