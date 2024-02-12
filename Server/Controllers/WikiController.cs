@@ -63,7 +63,7 @@ namespace Oqtane.Wiki.Controllers
             if (IsAuthorizedEntityId(EntityNames.Module, moduleid))
             {
                 List<WikiContent> WikiContents = _WikiRepository.GetWikiContents(moduleid, wikipageid).ToList();
-                if (WikiContents != null)
+                if (WikiContents.Any())
                 {
                     WikiContent = WikiContents.OrderBy(item => item.CreatedOn).Last();
                 }
