@@ -115,14 +115,14 @@ namespace Oqtane.Wiki.Repository
 
             // wiki links are in the form [[title]]
             var links = new List<string>();
-            int index = content.IndexOf("[[");
+            int index = content.IndexOf("[[", StringComparison.OrdinalIgnoreCase);
             while (index != -1)
             {
-                if (content.IndexOf("]]", index) != -1)
+                if (content.IndexOf("]]", index, StringComparison.OrdinalIgnoreCase) != -1)
                 {
-                    links.Add(content.Substring(index + 2, content.IndexOf("]]", index) - index - 2));
+                    links.Add(content.Substring(index + 2, content.IndexOf("]]", index, StringComparison.OrdinalIgnoreCase) - index - 2));
                 }
-                index = content.IndexOf("[[", index + 1);
+                index = content.IndexOf("[[", index + 1, StringComparison.OrdinalIgnoreCase);
             }
 
             if (links.Count > 0)
@@ -131,7 +131,7 @@ namespace Oqtane.Wiki.Repository
 
                 foreach (var link in links)
                 {
-                    var wikicontent = wikicontents.FirstOrDefault(item => item.WikiPage.Title == link);
+                    var wikicontent = wikicontents.FirstOrDefault(item => string.Equals(item.WikiPage.Title, link, StringComparison.OrdinalIgnoreCase));
 
                     if (wikicontent == null)
                     {
@@ -159,7 +159,7 @@ namespace Oqtane.Wiki.Repository
 
                     // replace wiki link with hyperlink
                     var parameters = Utilities.AddUrlParameters(wikicontent.WikiPageId, Common.FormatSlug(wikicontent.WikiPage.Title));
-                    content = WikiContent.Content.Replace($"[[{link}]]", $"<a href=\"{Utilities.NavigateUrl(WikiContent.WikiPage.AliasPath, WikiContent.WikiPage.PagePath, parameters)}\">{link}</a>");
+                    content = content.Replace($"[[{link}]]", $"<a href=\"{Utilities.NavigateUrl(WikiContent.WikiPage.AliasPath, WikiContent.WikiPage.PagePath, parameters)}\">{link}</a>");
                 }
             }
 
