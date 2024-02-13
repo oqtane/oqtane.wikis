@@ -32,7 +32,7 @@ namespace Oqtane.Wiki.Repository
             }
             if (!string.IsNullOrEmpty(Tag))
             {
-                wikicontents = wikicontents.Where(item => ("," + item.WikiPage.Tags + ",").Contains("," + Tag.ToLower() + ",")).ToList();
+                wikicontents = wikicontents.Where(item => item.WikiPage.Tags.ToLower().Split(',').Select(t => t.Trim()).Contains(Tag.ToLower())).ToList();
             }
 
             return wikicontents;

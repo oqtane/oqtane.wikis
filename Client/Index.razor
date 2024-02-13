@@ -31,7 +31,7 @@
         <h3>@Localizer["Results"]</h3>
         <Pager Format="Grid" Items="@_wikicontents" Columns="1">
             <Row>
-                <h3><a href="@FormatUrl(context.WikiPageId, context.WikiPage.Title)">@context.WikiPage.Title</a></h3>
+                <h4><a href="@FormatUrl(context.WikiPageId, context.WikiPage.Title)">@context.WikiPage.Title</a></h4>
                 <p>@((MarkupString)Common.CreateSummary(context.Content, 200, _search))</p>
             </Row>
         </Pager>
