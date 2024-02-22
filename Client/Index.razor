@@ -142,7 +142,6 @@ else
         catch (Exception ex)
         {
             await logger.LogError(ex, "Error Loading WikiContent {Error}", ex.Message);
-            ModuleInstance.AddModuleMessage(Localizer["Error.Loading"], MessageType.Error);
         }
     }
 
@@ -166,7 +165,7 @@ else
         catch (Exception ex)
         {
             await logger.LogError(ex, "Error Searching WikiContent {Error}", ex.Message);
-            ModuleInstance.AddModuleMessage(Localizer["Error.Searching"], MessageType.Error);
+            AddModuleMessage(Localizer["Error.Searching"], MessageType.Error);
         }
     }
 

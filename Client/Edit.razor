@@ -122,7 +122,7 @@
         catch (Exception ex)
         {
             await logger.LogError(ex, "Error Loading WikiContent {Id} {Error}", _id, ex.Message);
-            ModuleInstance.AddModuleMessage(Localizer["Error.Load"], MessageType.Error);
+            AddModuleMessage(Localizer["Error.Load"], MessageType.Error);
         }
     }
 
@@ -180,7 +180,7 @@
             catch (Exception ex)
             {
                 await logger.LogError(ex, "Error Saving WikiContent {Error}", ex.Message);
-                ModuleInstance.AddModuleMessage(Localizer["Error.Save"], MessageType.Error);
+                AddModuleMessage(Localizer["Error.Save"], MessageType.Error);
             }
         }
         else
