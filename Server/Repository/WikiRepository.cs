@@ -49,7 +49,7 @@ namespace Oqtane.Wiki.Repository
             var wikicontents = _db.WikiContent.Include(item => item.WikiPage)
                 .Where(item => item.WikiPageId == WikiPageId);
 
-            if (wikicontents.Any())
+            if (wikicontents?.Any() == true)
             {
                 if (WikiContentId == -1)
                 {

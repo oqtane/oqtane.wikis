@@ -26,7 +26,7 @@
 <br />
 @if (_wikicontents != null)
 {
-    @if (_wikicontents.Any())
+    @if (_wikicontents?.Any() == true)
     {
         <h3>@Localizer["Results"]</h3>
         <Pager Format="Grid" Items="@_wikicontents" Columns="1">
