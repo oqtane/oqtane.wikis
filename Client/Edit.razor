@@ -46,7 +46,7 @@
                 }
             </form>
         </TabPanel>
-        @if (_wikicontents != null && _wikicontents.Any())
+        @if (_wikicontents != null && _wikicontents?.Any() == true)
         {
             <TabPanel Name="History" Heading="History" ResourceKey="History">
                 <Pager Items="@_wikicontents">
@@ -132,7 +132,7 @@
         _wikicontents = _wikicontents.OrderByDescending(item => item.CreatedOn).ToList();
         _view = "";
 
-        if (_wikicontents.Any())
+        if (_wikicontents?.Any() == true)
         {
             var wikicontent = _wikicontents.First();
             _title = wikicontent.WikiPage.Title;
