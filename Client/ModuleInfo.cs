@@ -9,7 +9,7 @@ namespace Oqtane.Wiki
         {
             Name = "Wiki",
             Description = "Wiki",
-            Version = "1.0.0",
+            Version = "6.1.2",
             ReleaseVersions = "1.0.0",
             ServerManagerType = "Oqtane.Wiki.Manager.WikiManager, Oqtane.Wiki.Server.Oqtane",
             Dependencies = "Oqtane.Wiki.Shared.Oqtane",
