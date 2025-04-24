@@ -1,6 +1,6 @@
 # Latest Release
 
-[6.1.2](https://github.com/oqtane/oqtane.wikis/releases/tag/v6.1.2) was released on April 11, 2025.
+[6.1.2](https://github.com/oqtane/oqtane.wikis/releases/tag/v6.1.2) was released on Apr 11, 2025.
 
 # Wiki Module
 
